@@ -1,0 +1,1014 @@
+#!/usr/bin/perl -w
+
+=head1 NAME 
+
+critter - Text search.
+
+=head1 SYNOPSIS 
+
+critter
+
+=head1 DESCRIPTION
+
+=head2 Main window controls.
+
+=head2 "Enter the text to search for:"
+
+Here you can enter your search text.  The text can use any
+of Perl's regular expression metacharacters (see below for a 
+summary).  
+
+=head2 "Top search directory:" 
+
+This is the top-level directory to search.  Defaults to "~" (home
+directory).  Other possible values are: "/" (root file system
+directory) and "." (current directory).
+
+=head2 Search
+
+Start searching.  This opens a list window that shows the matched text
+and the files that contains them.  The buttons in the list window (see
+below) do not take effect until the search has completed.
+
+=head2 Help
+
+Display this window.
+
+=head2 Quit
+
+Exit Critter.
+
+=head2 Case sensitive search.
+
+If this option is selected, Critter will
+match the search text's case as well as the letters; e.g., "perl"
+would be matched, but not "Perl."  If this option is not selected,
+then entering "perl" would match both of them.  (Note that you can
+still achieve the same effect by entering "[Pp]erl."
+
+=head2 Match file name only.
+
+This option performs a match agains the file names but does
+not search their contents.
+
+=head2 Log progress to terminal.
+
+This option tells Critter to print a log of its progress (but not 
+the results of the search) to the terminal window.  The text 
+is printed to standard error, so from an xterm you can save the 
+log to a file with a command like "critter 2>critter.log &".
+
+=head2 Search executable files.
+
+Also search files that have their executable permission bit(s) 
+selected.
+
+=head2 Search gzipped files.
+
+This option tells Critter to uncompress files ending in "gz"
+before searching them.
+
+=head2 Results list controls.
+
+This window contains a list of the text matches of the search
+pattern and the files that contain them.  The control buttons
+are described below.
+
+=head2 View  
+
+Open a window with  the full contents of the file.  The 
+first match is at the top of the window.
+
+=head2 Save
+
+Save the results to a file.  Type the name of the file in the 
+dialog box and click "Accept."  If a file with that name already
+exists, then the results of this search are added to the end of the
+file.
+
+=head2 Close
+
+This closes the list window.
+
+=head2 Search expression syntax.
+
+The program uses normal Perl syntax for search expressions.  For
+further information, refer to the perlre man page.
+
+These are the Perl metacharacters:
+
+  ^ Beginning of line. (Negation if it starts a character class.
+  $ End of line.
+  . Any character.      [m-n] One char. of range m-n.
+  [ ] Character class.  ( ) Subexpression.
+  * Match the preceding expression 0 or more times.
+  + Match the preceding expression 1 or more times.
+  ? Match the preceding expressiong 0 or 1 time.
+  {m,n} Match preceding expression at least m and at most
+    m times.  Either m or n may be omitted, but not both.
+  $1, $2, etc.  Use the first, second, etc. previous subexpression.
+  \ Interpret the next character literally.
+
+Because the program recognizes regular expressions, literal
+metacharacters in the search expressions must be escaped (i.e.,
+preceded by a slash).
+
+=head2 Installation.
+
+Please refer to the file INSTALL in the distribution archive.
+
+=head2 System default settings.
+
+Your system administrator should have installed a file called
+/usr/local/lib/critter.prefs which is world-readable.  In addition,
+the program creates your own preferences file in your ~/.critter 
+subdirectory.  They are text files and can be edited easily by
+hand.
+
+=head2 Legal and credits.
+
+The Text Critter
+(http://www.mainmatter.com/critter)
+
+Version 1.4
+
+Copyright (C) 1999,2000 by Robert Kiesling. (rkiesling@mainmatter.com)
+This program is free software and is copyrighted under the 
+GNU General Public License, in the file COPYING.
+
+Please send all feedback to the author.
+
+Perl version 5.005 (http:/www.cpan.org) is written by Larry Wall and
+others, and the PerlTk package , Tk800.14
+(http://www.cpan.org/pub/plan/perl/CPAN/authors/id/NI-S) is by Nick
+Ing-Simmons.(nick@ni-s.u-net.com).
+
+# $Id: critter.perltk,v 0.87 2000/06/23 14:09:13 kiesling Exp $
+
+=cut
+
+use Tk;
+use Tk::FileSelect;
+use Tk::DialogBox;
+
+use strict;
+
+# These should all be in the standard Perl5 distribution.
+use FileHandle;
+use Cwd;
+use Env qw ( HOME );
+
+#  Default search options: 
+#  On/off options: edit to be either 1 or 0, as desired.
+#  See the descriptions under Options, below.
+my $case_sensitive_default = 1;
+my $log_default = 1;
+my $match_filename_default = 0;
+my $search_executables_default = 0;
+my $ungzip_default = 1; 
+# Default top-level search directory... *nix specific directory name.
+my $top_search_directory_default = '/';
+
+my $prefsfilename='critter.prefs';
+my $global_lib_directory = '/usr/local/lib/critter';
+my $user_lib_directory;  # ~/.critter directory where user prefs et al live.
+
+# External programs.
+
+my $grep_prog = &command_path('grep');
+my $find_prog = &command_path('find');
+my $gunzip_prog = &command_path('gunzip');
+my $compress_prog = &command_path('compress');
+
+# Labels
+my $titletext='The Text Critter.';
+my $credittext='Version 0.0. (C) 1999 by R. Kiesling.';
+my $searchprompttext='Enter the text to search for:';
+my $directoryprompttext='Top search directory:';
+my $resultsfileprompt='File to save results in:';
+my $saveprefstext='Save these preferences.';
+
+# Fonts
+my $titlefont='*-times-medium-i-*-*-24-*';
+my $creditfont='*-times-medium-i-*-*-12-*';
+my $labelfont='*-helvetica-medium-r-*-*-12-*';
+my $buttonfont='*-helvetica-medium-r-*-*-100-*';
+my $helptextfont="*-courier-medium-r-*-*-12-*";
+
+
+# List of directory regexp's not to search.
+my @exclude_directories = (
+			   "proc",
+			   "bin",
+			   "\.netscape",
+			   "dev",
+			   "font",
+			   "xbm",
+			   "xpm"
+			   );
+
+my @directories;        # List of directories searched.
+
+
+my $main;  # main window
+my $topframe; # Frame widget of the main window.
+my $topgrid; # Tix grid of the main window.
+my $results; # Results window
+my $resultsbox;  # list box widget
+my $resultslist; # list of search results
+my $resultsbuttons; # results window button widgets
+my $search_text_field;  # input field
+my $search_text;  # The text that the user enters.
+my $scroll; # results box scroll bar
+my $buttonframe; # Widget in which to place the buttons.
+my $optionframe; # Widget in which to place the option checkboxes.
+my $titleframe;  # Widget for title.
+my $case_sensitive_button;  # check button widget to select 
+                            # case sensitive search.
+my $match_filename_button;  # check button widget to select 
+                            # filename-only search.
+my $log_button;             # check button widget to select
+                            # error logging.
+my $search_executables_button; # check button to select
+                            # whether to search executables.
+my $gzip_button;             # Decide to use gzip to search compressed 
+                            # files.
+my $save_preferences_button; # button to save preferences in critter.prefs
+my $resultsexitbutton;      # Close the results window,
+my $resultssavebutton;      # Save the results of the search (the list).
+my $resultsviewbutton;      # View the selection in the results listbox.
+my $top_level_directory_box; # Entry field for top-level search dir.
+my $helpwindow;             # The help window.
+my $helptext;               # The help text widget.
+my $helpclosebox;           # Frame for the 'close' button widget.
+my $helpclose;              # Help window close button.
+my $resultsfiledialog;      # FileSelector wigdet for results save.
+my $resultsfileinput;       # Input box for results file name.
+my $resultsbuttonframe;     # Frame for results dialog buttons.
+my $resultsfileacceptbutton; # Accept and read results file.
+my $resultsfilecancelbutton; # cancel and close dialog.
+my $viewwindow;              # View the matched file.
+my $viewcontrols;            # Frame for the view window controls.
+my $viewclosebox;            # Frame for the close view button.
+my $viewlabelbox;            # Frame for the viewed file's name.
+my $viewtext;                # Text widget of file being viewed.
+my $closeviewbutton;         # button to close view window
+my $visible_match;           # Index into viewtext of current search match.
+
+# Options
+# Write log to STDOUT.
+my $log_to_stdout; # only match file names, not contents
+my $match_filename_switch;
+# write names of excluded directories to STDERR if logging is active.
+my $list_excluded_directories_switch;
+# Also search files that are executable
+my $search_executables_switch;
+# Make search case sensitive.
+my $case_sensitive_switch = '';
+# Use gunzip to search gzipped files.
+my $ungzip_switch;
+# Top-level search directory.
+my $top_search_directory;
+
+use vars qw ( $case_sensitive_default
+	      $log_default
+	      $match_filename_default
+	      $search_executables_default
+	      $ungzip_default );
+
+sub set_defaults { #if preferences file isn't read.
+
+    if ( not grep /0|1/, $case_sensitive_switch ) {
+	if ( $case_sensitive_default == 1 ) { 
+	    $case_sensitive_switch = '1';
+	    $case_sensitive_button -> select;
+	} else {
+	    $case_sensitive_switch = '0';
+	    $case_sensitive_button -> deselect;
+	};
+    } else 
+    {
+	if ( $case_sensitive_switch eq '1' ) { 
+	    $case_sensitive_button -> select;
+	} else {
+	    $case_sensitive_button -> deselect;
+	};
+    }
+	
+    if ( not grep /0|1/, $log_to_stdout ) {
+	if ( $log_default == 1 ) { 
+	    $log_button -> select;
+	    $log_to_stdout = '1';
+	} 
+	else {
+	    $log_button -> deselect;
+	    $log_to_stdout = '0';
+	};
+    } else 
+    {
+	if ( $log_to_stdout eq '1' ) { 
+	    $log_button -> select;
+	} 
+	else {
+	    $log_button -> deselect;
+	};
+    }
+
+    if ( not grep /0|1/, $match_filename_switch ) {
+	if ( $match_filename_default == 1 ) { 
+	    $match_filename_button -> select;
+	    $match_filename_switch = '1';
+	}
+	else {
+	    $match_filename_button -> deselect;
+	    $match_filename_switch = '0';
+	};
+    }
+    else {
+	if ( $match_filename_switch eq '1' ) { 
+	    $match_filename_button -> select;
+	}
+	else {
+	    $match_filename_button -> deselect;
+	};
+    }
+
+    if ( not grep /0|1/, $search_executables_switch ) {
+	if ( $search_executables_default == 1 ) { 
+	    $search_executables_button -> select;
+	    $search_executables_switch = '1';
+	}
+	else {
+	    $search_executables_button -> deselect;
+	    $search_executables_switch = '0';
+	};
+    } else
+    {
+	if ( $search_executables_switch eq '1' ) { 
+	    $search_executables_button -> select;
+	}
+	else {
+	    $search_executables_button -> deselect;
+	};
+    }
+
+    if ( not grep /0|1/, $ungzip_switch ) {
+	if ( $ungzip_default == 1 ) { 
+	    $gzip_button -> select;
+	    $ungzip_switch = '1';
+	}
+	else {
+	    $gzip_button -> deselect;
+	    $ungzip_switch = '0';
+	};
+    }
+    else {
+	if ( $ungzip_switch eq '1' ) { 
+	    $gzip_button -> select;
+	}
+	else {
+	    $gzip_button -> deselect;
+	};
+    }
+
+    if ($top_search_directory eq '' ) {
+	$top_level_directory_box -> 
+	    insert ( 'end', $top_search_directory_default );
+    } 
+    else {
+	$top_level_directory_box -> 
+	    insert ( 'end', $top_search_directory );
+    }
+}
+
+# check for existence of global and user ~/.critter directory 
+# and set fully qualified
+# path names if they exist.
+sub critter_directory {
+
+    if ( not -d $global_lib_directory ) {
+	$global_lib_directory = '';
+    }
+
+    $user_lib_directory = $HOME . '/' . '.critter';
+    if ( not -d $user_lib_directory ) {
+	$user_lib_directory = ''; 
+    }
+}
+
+sub read_prefs {
+    # local prefs override global prefs
+    my $prefsfile = $user_lib_directory . '/' . $prefsfilename;
+    if ( not -f $prefsfile ) {
+	$prefsfile = $global_lib_directory . '/' . $prefsfilename;
+    }
+    open FILE, ("<" . $prefsfile) or return;
+    read FILE, $_, 1024;
+    /Case_sensitive_switch (.*)\n/;
+    $case_sensitive_switch = $1;
+    /Log_to_stdout (.*)\n/;
+    $log_to_stdout = $1;
+    /Match_filename_switch (.*)\n/;
+    $match_filename_switch = $1;
+    /Search_executables_switch (.*)\n/;
+    $search_executables_switch = $1;
+    /Ungzip_switch (.*)\n/;
+    $ungzip_switch = $1;
+    /Top_level_directory (.*)\n/;
+    $top_search_directory = $1;
+    close FILE;
+
+}
+
+sub save_prefs {
+    # only save to user's directory
+    my $prefsfile = $HOME . '/.critter/' . $prefsfilename;
+    my $createdialog;
+    my $faildialog;
+    my $successdialog;
+    my $createyes;
+
+    if ( not -e $prefsfile ) { 
+	$createdialog = $main -> DialogBox ( -buttons => 
+					     [qw(OK Cancel)]);
+	$createdialog -> add( 'Label', 
+			      -text => 'Need to create new preferences file.',
+			      -font => $labelfont ) -> pack;
+	$createyes = $createdialog -> Show();
+	if ( grep /Cancel/, $createyes ) {
+	    $faildialog = $main -> DialogBox ( -buttons => 
+					       [qw(Ok)]);
+	    $faildialog -> add( 'Label', -text => 
+				'Preferences not saved.',
+				-font => $labelfont ) -> pack;
+	    $faildialog -> Show;
+	    return;
+	}
+    }
+
+    if ( not -d ( $HOME . '/.critter') ) {
+	mkdir( ($HOME . '/.critter'), 0755 ) 
+	    or &log( "Could not create user directory." );
+	
+	}
+
+    print $prefsfile;
+
+    open FILE, ( "+>" . $prefsfile ) or 
+	&log('Could not open preferences file.') ;
+	    
+    printf 
+	FILE "Case_sensitive_switch " . $case_sensitive_switch . "\n" ;
+    printf 
+	FILE "Log_to_stdout " . $log_to_stdout. "\n";
+    printf 
+	FILE "Match_filename_switch " . $match_filename_switch. "\n";
+    printf 
+	FILE "Search_executables_switch " . $search_executables_switch . "\n";
+    printf 
+	FILE "Ungzip_switch " . $ungzip_switch . "\n";
+    printf 
+	FILE "Top_level_directory " . 
+             ($top_level_directory_box -> get)  . "\n";
+	    close FILE;
+}
+
+sub init_widgets {
+
+    $main = new MainWindow;
+    my $lib_dir = '';
+    my $spider = '';
+
+    &critter_directory();
+    $titleframe = $main -> Frame ( -container => 0,
+				   -borderwidth => 1 );
+    if ( -d $global_lib_directory  ) {
+	$lib_dir = $global_lib_directory;
+    } 
+    if ( -d $user_lib_directory ) {
+	$lib_dir = $user_lib_directory;
+    }
+#    if ( -f ( $global_lib_directory . '/spider.xbm') ) {
+#	$spider = $global_lib_directory . '/spider.xbm';
+#    }
+#    if ( -f ( $user_lib_directory . '/spider.xbm') ) {
+#	$spider = $user_lib_directory . '/spider.xbm';
+#	}
+#   if ( $spider ne '' ) {
+#	$titleframe -> Label (-bitmap => ( "\@" . $spider ),
+#			   -foreground => 'black',
+#			   -background => 'white',
+#			   -height => 50, -width => 50, -anchor => 'nw' ) 
+#	-> pack ( -side => 'left' );
+#    }
+    $titleframe->Label(-text => $titletext, -font => $titlefont)->pack;
+    $titleframe->Label(-text => $searchprompttext,
+		       -font => $labelfont ) -> pack ( -side => 'bottom' );
+    $titleframe -> pack;
+    $search_text_field = $main->Entry(-width => 30) -> pack;
+    $topframe = $main-> Frame;
+    $buttonframe = $main -> Frame ( -container => 0,
+				    -borderwidth => 5 ) 
+	-> pack ( -side => 'left' );
+    $optionframe = $main -> Frame ( -container => 0,
+				    -borderwidth => 5 )
+	-> pack ( -side => 'right' );
+    $case_sensitive_button = $optionframe -> 
+	Checkbutton ( -text => 'Case sensitive search.',
+		      -font => $buttonfont,
+		      -variable => $case_sensitive_switch,
+		      -onvalue => 1,
+		      -offvalue => 0,
+		      -command => sub{toggle_case()}) -> 
+			pack ( -anchor => 'w' );
+    $match_filename_button = $optionframe -> 
+	Checkbutton ( -text => 'Match file name only.',
+		    -font => $buttonfont, 
+		      -variable => $match_filename_switch,
+		      -onvalue => 1,
+		      -offvalue => 0,
+		      -command => sub{toggle_filenames_only()}) 
+	    -> pack ( -anchor => 'w' );
+    $log_button = $optionframe -> 
+	Checkbutton ( -text => 'Log progress to terminal.',
+		    -font => $buttonfont, 
+		      -variable => $log_to_stdout,
+		      -onvalue => 1,
+		      -offvalue => 0,
+		      -command => sub{toggle_logging()})-> 
+			  pack ( -anchor => 'w' );
+    $search_executables_button = $optionframe -> 
+	Component ( 'Checkbutton', 'match_filename_button', 
+		    -text => 'Search executable files.',
+		    -font => $buttonfont,
+		    -variable => $search_executables_switch,
+		    -onvalue => 1,
+		    -offvalue => 0,
+		    -command => sub{toggle_executable_search()}) 
+	    -> pack ( -anchor => 'w' );
+    $gzip_button = $optionframe -> 
+	Component ( 'Checkbutton', 'match_filename_button', 
+		    -text => 'Search gzipped files.',
+		    -variable => $ungzip_switch,
+		    -onvalue => 1,
+		    -offvalue => 0,
+		    -command => sub{toggle_compression()},
+		    -font => $buttonfont ) -> pack ( -anchor => 'w' );
+    $optionframe -> Label ( -text => $directoryprompttext,
+			    -font => $buttonfont ) -> 
+				pack ( -anchor => 'w' );
+    $top_level_directory_box = $optionframe -> 	
+	Entry ( -width => 20 );
+    $top_level_directory_box -> pack ( -anchor => 'w' );
+    $save_preferences_button= $optionframe ->
+	Button ( -text => $saveprefstext, 
+		 -font => $buttonfont,
+		 -justify => 'left',
+		 -anchor => 'w',
+		 -padx => 4,
+		 -command => sub{save_prefs()}) -> pack( -fill => 'x');
+    $buttonframe->Button(-text => 'Search!', 
+			 -font => $buttonfont,
+			 -command => sub{do_search()})->pack( -fill => 'both',
+							      -expand => 1 );
+    $buttonframe->Button(-text => 'Help!', 
+ 	      -font => $buttonfont, 
+ 	      -command => sub{self_help()})->pack( -fill => 'both',
+					       -expand => 1 );
+    $buttonframe->Button(-text => 'Quit', 
+ 	      -font => $buttonfont, 
+ 	      -command => sub{exit})->pack( -fill => 'both', -expand => 1 );
+    $buttonframe -> pack ( -fill => 'both', -expand => 1 );
+    &read_prefs;
+    &set_defaults;     #use built-in defaults if prefs file not read.
+    $topframe->pack(-side => 'bottom', -fill=>'both');
+}
+
+sub toggle_compression {
+    $ungzip_switch = 
+	($ungzip_switch == 0 ) ? 1 : 0 ; 
+    &log ( "ungzip_switch = " . $ungzip_switch . ".\n" );
+}
+sub toggle_case {
+    $case_sensitive_switch = 
+	($case_sensitive_switch == 0 ) ? 1 : 0 ; 
+    &log ( "case_sensitive_switch = " . $case_sensitive_switch . ".\n" );
+}
+sub toggle_executable_search {
+    $search_executables_switch = 
+	($search_executables_switch == 0 ) ? 1 : 0 ; 
+    &log ( "search_executables_switch = " . $search_executables_switch . ".\n" );
+}
+sub toggle_filenames_only {
+    $match_filename_switch =
+	($match_filename_switch == 0 ) ? 1 : 0 ; 
+    &log ( "match_filename_switch = " . $match_filename_switch . ".\n" );
+}
+sub toggle_logging {
+    $log_to_stdout = 
+	($log_to_stdout == 0 ) ? 1 : 0 ; 
+    &log ( "log_to_stdiout = " . $log_to_stdout . ".\n" );
+}
+
+
+sub do_search {
+     ($search_text) = $search_text_field->get;
+
+     &log("Search expression: " . $search_text);
+
+     $results = new MainWindow ( -width => 150, -height => 100);
+     $resultsbuttons = $results -> Frame ( -container => 0,
+					   -borderwidth => 1 );
+     $resultsviewbutton = $resultsbuttons -> 
+	 Button (-text => 'View',
+		 -font => $buttonfont,
+		 -state => 'disabled',
+		 -command => sub{view_file()}) -> pack ( -side => 'left');
+     $resultssavebutton = $resultsbuttons -> 
+	 Button (-text => 'Save',
+		 -font => $buttonfont,
+		 -state => 'disabled',
+		 -command => sub{save_results()} ) -> pack ( -side => 'left');
+     $resultsexitbutton = $resultsbuttons -> 
+	 Button (-text => 'Close',
+		 -font => $buttonfont,
+		 -state => 'disabled',
+		 -command => sub{restart()}) -> pack ( -side => 'left');
+     $resultsbuttons -> pack( -side => 'bottom' );
+       $resultslist = $results ->Listbox( -relief => 'sunken',
+ 			  -width => 50,
+ 			  -height => 5,
+			  -font => $labelfont,
+ 			  -setgrid => 'yes') -> pack;
+     $scroll = $results ->Scrollbar(-command => ['yview', $resultslist]); 
+     $scroll -> pack ( -side => 'right');
+     $resultslist->configure(-yscrollcommand => ['set', $scroll]);
+     $resultslist->pack(-side => 'left', 
+ 		       -fill => 'both', 
+ 		       -expand => 'yes');
+     $scroll->pack(-side => 'right', -fill => 'y');
+
+     $top_search_directory = $top_level_directory_box -> get;
+
+     @directories = ();
+    &get_directory_tree($top_search_directory);
+     $resultsviewbutton -> configure ( -state => 'normal' );
+     $resultssavebutton -> configure ( -state => 'normal' );
+     $resultsexitbutton -> configure ( -state => 'normal' );
+}
+
+sub save_results {
+
+    &log ( "Number of search matches: " . $resultslist -> size );
+
+    $resultsfiledialog = new MainWindow;
+    $resultsbuttonframe = $resultsfiledialog -> Frame;
+    $resultsfileacceptbutton = $resultsbuttonframe ->
+	Button ( -text => 'Accept',
+		 -font => $buttonfont,
+		 -command => sub{write_results ()}) -> pack ( -side => 'left' );
+    $resultsfilecancelbutton = $resultsbuttonframe ->
+	Button ( -text => 'Cancel',
+		 -font => $buttonfont,
+		 -command => [$resultsfiledialog => 'destroy'] ) ->
+		 pack ( -side => 'left' );
+    $resultsbuttonframe -> pack ( -side => 'bottom');
+    $resultsfiledialog -> Label ( -text => $resultsfileprompt,
+				  -font => $labelfont ) -> pack;
+   $resultsfileinput = $resultsfiledialog -> 
+	Entry ( -width => 30 ) -> pack;
+}
+
+sub write_results { 
+
+    my $resultsfile = new FileHandle;
+    my $resultsfilename;
+    my $i = $resultslist -> size;
+    my $n = $i;
+
+    $resultsfilename = $resultsfileinput -> get;
+    if ( $resultsfilename eq '' ) { return; }
+    open $resultsfile, (">>". $resultsfilename ) or 
+	&log ("Can't open results file: " . $resultsfilename );
+    for ( $i = 1; $i <= $n; $i++ ) { 
+	$resultsfile->print($resultslist -> get ( $i ));
+    }
+    close $resultsfile;
+    $resultsfiledialog -> destroy;
+}
+
+sub view_file {
+    my @selected_match;
+    my $filename;
+
+    @selected_match = split / : /, ($resultslist -> get ( 'active' ));
+    &log( "Selected match " . $selected_match[0] );
+    if ( $selected_match[0] eq '' ) { 
+	@selected_match = split / : /, ($resultslist -> get ( 0 ));
+    }
+    $filename = $selected_match[0];
+    $viewwindow = new MainWindow;
+    $viewlabelbox = $viewwindow -> Frame ( -container => 0,
+					   -borderwidth => 1 ) -> pack;
+    $viewlabelbox -> Label ( -text => $filename,
+			     -font => $labelfont,
+			     -justify => 'left') 
+	-> pack ( -side => 'left' );
+    $viewtext = $viewwindow -> Text ( -height => 15,
+				      -width => 80, 
+				      -wrap => 'none',
+				      -exportselection => 'true');
+    open FILE, $filename or 
+	&log ("Can't open " . $filename . " for viewing." );
+    while ( ! eof FILE ){ 
+	$viewtext -> insert ( 'end', FILE -> getline );
+    }
+    close FILE;
+    $viewtext -> pack;
+
+    $viewcontrols = $viewwindow -> Frame ( -container => 0,
+					   -borderwidth => 1 );
+    $viewclosebox = $viewwindow -> Frame ( -container => 0,
+					   -borderwidth => 1 );
+    $viewcontrols -> pack ( -side => 'left' );
+    $viewclosebox -> pack ( -side => 'right' );
+    $viewcontrols -> Button ( -text => 'Previous',
+			      -font => $buttonfont,
+			      -command => sub{prev_match()}) 
+	-> pack ( -side => 'left' ); 
+    $viewcontrols -> Button ( -text => 'Next',
+			      -font => $buttonfont,
+			      -command => sub{next_match()}) 
+	-> pack ( -side => 'right' ); 
+    $viewclosebox -> Button ( -text => 'Close',
+			      -font => $buttonfont,
+			      -command => ['destroy', $viewwindow]) 
+	-> pack ( -side => 'right' );
+    if ( $case_sensitive_switch == 1 ) { 
+	$visible_match = $viewtext -> search ( -regexp, -forward,
+					   $search_text, '1.0',
+					       'end');
+    } 
+    else { 
+	$visible_match = $viewtext -> search ( -regexp, -forward, -nocase,
+					   $search_text, '1.0', 
+					       'end');
+    }
+    $viewtext -> see ( $visible_match );
+    $viewtext -> pack;
+}
+
+sub next_match {
+
+    my $this_match;
+    # C, terse?  Naaah.   Start at left of the following line...
+    my ($line, $column) = split /\./, $visible_match;
+    my $next_line; ;
+    $next_line = sprintf "%d", (int $line) + 1;
+
+    &log("line = " . $line . " column = " . $column );
+    &log("next_line = " . $next_line );
+    &log("case_sensitive_switch = " . $case_sensitive_switch );
+    if ( $case_sensitive_switch == 1 ) { 
+	$this_match = $viewtext -> 
+	    search ( -regexp, -forward,
+		     $search_text, 
+		     ($next_line . ".0")  );
+    } 
+    else { 
+	$this_match = $viewtext -> 
+	    search ( -regexp, -forward, -nocase,
+		     $search_text, 
+		     # As above... 
+		     ($next_line . ".0")  );
+    }
+    &log ("This_match forwards: " . $this_match );
+    if ( $this_match ) {
+	$visible_match = $this_match;
+	$viewtext -> see ( $this_match );
+    }
+    $viewtext -> pack;
+}
+
+sub prev_match {
+
+    my $this_match = '';
+
+    if ( $case_sensitive_switch == 1 ) { 
+	$this_match = $viewtext -> search ( -regexp, -backward,
+					   $search_text, $visible_match);
+    } 
+    else { 
+	$this_match = $viewtext -> search ( -regexp, -backward, -nocase,
+					   $search_text, $visible_match);
+    }
+    &log ("This_match backwards: " . $this_match );
+    if ( $this_match ) {
+	$visible_match = $this_match;
+	$viewtext -> see ( $this_match );
+    }
+    $viewtext -> pack;
+}
+
+# 
+#  This is to re-initialize variables so the 
+#  program doesn't need to be restarted.  However,
+#  do not reset defaults in case the user has 
+#  changed them.
+#
+sub restart {
+    $results -> destroy;
+    $top_search_directory = $top_search_directory_default;
+}
+
+sub get_directory_tree {
+    my ($top_level_directory) = @_ ;
+    my $this_level_directory = '';
+    my @this_directory_list = ();
+    my $dir = '';
+    my $subdir = '';
+    my $exclude_dir = '';
+    my $f = '';
+    my $expanded_file_name;
+    my @pwd = ("pwd");
+    DoOneEvent(255);
+    # parse out relative file names, ourselves, as portably as possible. 
+    if ( not File::Spec->file_name_is_absolute($top_level_directory) ) { 
+	if (substr ( $top_level_directory, -1 ) eq "/" ) {
+	    chop $top_level_directory;
+	}
+	if ( grep /\~/, $top_level_directory ) {
+	    $top_level_directory = 
+		( ( File::Spec->canonpath( $HOME ) ) . "/" );
+	}
+    }
+
+    &log( "top_level_directory: " . $top_level_directory );
+    DoOneEvent(255);
+    if ( not ( opendir THISDIR, $top_level_directory ) ) {
+	&log( "Could not open " . $top_level_directory );
+	return; 
+    }
+    foreach $exclude_dir ( @exclude_directories ) {
+	if ( $top_level_directory =~ m#$exclude_dir#g ) {
+	     &log( "Excluding " . $top_level_directory . " from search.");
+	     return;
+	 }
+    }
+    @this_directory_list = readdir THISDIR;
+    FOREACH: foreach $dir (@this_directory_list) {
+	if ( ($dir eq ".") || ($dir eq "..") ) {
+	    next FOREACH;
+	}
+	if ( chdir $top_level_directory . $dir ) {
+	    &get_directory_tree( $top_level_directory . $dir . '/' );
+	    $directories[$#directories+1] 
+		= ($top_level_directory . $dir);
+	} else {
+	    &match_file($top_level_directory . $dir);
+	    }
+	DoOneEvent(255);
+    }
+}
+
+#
+#     See if the file we're looking at matches any search criteria.
+#
+sub match_file {
+
+    my ($filename) = @_;
+
+     if ( ( -x $filename ) && ( $search_executables_switch == 0 ) ) {
+	 &log("Skipping executable file " . $filename);
+	 return;
+    }
+
+    if ( $match_filename_switch == 1 ) {
+	&match_filename($filename);
+	return;
+    }
+
+    # finally, search the contents of the file
+    &search_file_contents($filename);
+}
+
+
+sub search_file_contents {
+    my ($filename) = @_;
+    my ($filelabel) = @_;
+    my $input_buffer;
+    my @command_string;
+
+    if ( substr ( $filename, -2 ) eq "gz" ) {
+	if ( ( $ungzip_switch == 1 ) && ( $gunzip_prog ne '' ) ) {
+	DoOneEvent(255);
+	    @command_string 
+		= ($gunzip_prog . " -fcd " . $filelabel . " > /tmp/critter.tmp" );
+	    system(@command_string);
+	    &log( "gunzipped " . $filelabel );
+	    $filename = "/tmp/critter.tmp";
+	}
+	else { return; }
+    }
+    &log("Searching " . $filelabel);
+    open FILE, $filename or &log("Can't open " . $filelabel );
+    while ( read FILE, $input_buffer, 64 ) {
+	if ( $case_sensitive_switch == 1 ) {
+	    if ( $input_buffer =~ m/$search_text/gx ) {
+		$resultslist -> insert( 'end', 
+					($filelabel . " : " . $input_buffer) );
+	    }}
+	if ( $case_sensitive_switch == 0 ) {
+	    if ( $input_buffer =~ m/$search_text/igx ) {
+		$resultslist -> insert( 'end',
+					($filelabel . " : " . $input_buffer) );
+	    }}  # case_sensitive_switch
+	DoOneEvent(255);
+    } # while read_file
+    close FILE;
+	
+} # sub match_file_contents
+
+#
+#    See if a file name matches the search pattern
+#
+sub match_filename {
+    my ($filename) = @_;
+
+    if ( $case_sensitive_switch  == 1 ) {
+	if ( $filename =~ m/$search_text/igx) {
+	    $resultslist -> insert ( 'end', ( $filename ));
+	    &log("File name match: " . $filename);
+	}
+    } else {
+	if ( $filename =~ m/$search_text/gx) {
+	    $resultslist -> insert ( 'end', ( $filename ));
+	    &log("File name match: " . $filename);
+	}
+    }
+    DoOneEvent(255);
+}
+
+sub log {
+    my ($entry) = @_;
+    if ($log_to_stdout eq "0" ) {
+	return;
+    }
+    printf  STDERR $entry . "\n";
+}
+
+sub command_path {
+    my ($programname)  = @_;
+    my $envpath = $ENV{'PATH'};
+    my $fully_qualified_command = '';
+    my $dir = '';
+    my @pathdirectories = split /:/sg, $ENV{'PATH'};
+    foreach $dir (@pathdirectories) {
+	$fully_qualified_command = $dir . '/' . $programname;
+	if ( -x $fully_qualified_command ) {
+	    return $fully_qualified_command;
+	}
+    }
+    return '';
+}
+
+sub self_help {
+    my $self = shift;
+    my $own_filename = __FILE__;
+    my $help_text;
+    my $helpwindow;
+    my $textwidget;
+
+    open( HELP, ("pod2text <" . $own_filename . " |") ) or $help_text = 
+"Unable to process help text.  Please refer to the file workspace.txt."; 
+    while (<HELP>) {
+	$help_text .= $_;
+    }
+    close( HELP );
+
+    $helpwindow = new MainWindow( -title => 'Workspace Help' );
+    my $textframe = $helpwindow -> Frame( -container => 0, 
+					  -borderwidth => 1 ) -> pack;
+    my $buttonframe = $helpwindow -> Frame( -container => 0, 
+					  -borderwidth => 1 ) -> pack;
+    $textwidget = $textframe  
+	-> Scrolled( 'Text', 
+		     -font => $helptextfont,
+		     -scrollbars => 'e' ) -> pack( -fill => 'both',
+						   -expand => 1 );
+    $textwidget -> insert( 'end', $help_text );
+
+    $buttonframe -> Button( -text => 'Close',
+			    -font => $buttonfont,
+			    -command => sub{$helpwindow -> DESTROY} ) ->
+				pack;
+}
+
+##
+## Main program loop
+##
+&init_widgets(); 
+Tk::MainLoop;
+
+
+

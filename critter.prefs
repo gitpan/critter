@@ -1,0 +1,6 @@
+Case_sensitive_switch 1
+Log_to_stdout 0
+Match_filename_switch 0
+Search_executables_switch 0
+Ungzip_switch 1
+Top_level_directory /

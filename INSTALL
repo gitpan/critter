@@ -1,0 +1,81 @@
+Text Critter 0.80 Install 
+-------------------------
+
+This program was written using Linux with Perl 5.005 and PerlTk
+800.14.  If you don't have these installed, please see below.
+
+1.  Unpack the distribution archive in the directory of your 
+choice; e.g.:
+
+# tar zxvf critter-0.83.tar.gz
+
+This will create the subdirectory critter-0.83, which contains
+the critter program, data files, and miscellaney.  
+
+2.  If you are root, you can copy the executable to a directory
+    in the system's search path, like /usr/local/bin, and the files 
+    critter.help, critter.prefs, and spider.xbm to the directory 
+    /usr/local/lib/critter so that all users will have access to them; 
+    e.g.;
+
+       cd critter-0.83
+       mkdir /usr/local/lib/critter
+       cp critter /usr/local/bin
+       cp critter.help critter.prefs spider.xbm /usr/local/lib/critter
+       cp critter.1 /usr/local/man/man1
+
+    If you are not root, you can install these files in under 
+    your $HOME directory in the subdirectory .critter.  This directory
+    will not be visible in normal listings.  E.g.;
+
+       cd critter-0.87
+       mkdir ~/.critter
+       cp critter.help critter.prefs spider.xbm "/.critter
+   
+    The program will still work without these files installed,
+    but you will not have on-line help or the cute spider on the
+    main window display.  The program will still save your preferences
+    in ~/.critter, however, creating the ~/.critter directory if 
+    necessary.
+
+3.  That should be all.  In an xterm, enter:
+
+./critter &  # If critter is installed in one of your $HOME directories,
+	     # or simply,
+
+critter &    # If it is installed in one of the directories in your 
+             # search path.
+
+If you find it isn't working, you can enable error logging to the 
+terminal by default by changing the $log_default value at line 167
+from 0 to 1.  Then the program will output copious amounts of 
+information to the terminal.
+
+If the shell says "file not found," that probably means the program
+can't locate Perl on your system.  Edit the first line of the program
+with the path name of your system's perl interpreter (i.e., the output
+of "which perl").
+
+Where to Find Perl and Tcl/Tk:
+------------------------------
+
+If you don't have Perl or the PerlTk package, you can find them
+on http://www.cpan.org/.  Follow the instructions in the
+distributions to install them.  Tcl/Tk is available from 
+http://www.tclconsortium.org/.
+
+Disclaimer and Legal:
+---------------------
+
+This program is free software.  It is copyrighted using the terms of
+the GNU General Public License.  Please see the file COPYING for
+details of what you can and cannot do with it, to it, or for it.
+
+The Text Critter is Copyright (C) 1999 by Robert Kiesling.  As usual,
+the author makes no warranties about the usability or correctness of
+the program, and takes no responsibility for any damage the program 
+might do to your system.  
+
+However, feedback is welcome.  Please send all comments to
+kiesling@ix.netcom.com.
+
