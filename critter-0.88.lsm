@@ -1,0 +1,20 @@
+Begin3
+Title:          critter
+Version:        0.88
+Entered-date:   26 Aug 2002
+Description:    User-friendly text search program for X written in 
+                Perl that uses the PerlTk package.
+Keywords:       Perl Text Search
+Author:         rkiesling@earthlink.net (Robert Kiesling)
+Maintained-by:  rkiesling@earthlink.net (Robert Kiesling)
+Primary-site:   metalab.unc.edu /utils/text
+                        6111 Artistic
+                        2787 README
+                       29759 critter
+                         679 critter-0.88.lsm
+                        8529 critter.1
+                        3866 critter.help
+                         130 critter.prefs
+Platforms:      Linux/Unix Sparc/Solaris
+Copying-policy: Artistic
+End

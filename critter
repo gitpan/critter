@@ -127,36 +127,23 @@ hand.
 
 =head2 Legal and credits.
 
-The Text Critter
-(http://www.mainmatter.com/critter)
+Written by Robert Allan Kiesling <rkiesling@earthlink.net>
 
-Version 1.4
+Version 1.5
 
-Copyright (C) 1999,2000 by Robert Kiesling. (rkiesling@mainmatter.com)
 This program is free software and is copyrighted under the 
-GNU General Public License, in the file COPYING.
-
-Please send all feedback to the author.
-
-Perl version 5.005 (http:/www.cpan.org) is written by Larry Wall and
-others, and the PerlTk package , Tk800.14
-(http://www.cpan.org/pub/plan/perl/CPAN/authors/id/NI-S) is by Nick
-Ing-Simmons.(nick@ni-s.u-net.com).
-
-# $Id: critter.perltk,v 0.87 2000/06/23 14:09:13 kiesling Exp $
+GNU General Public License.  Refer to the file COPYING.
 
 =cut
 
 use Tk;
 use Tk::FileSelect;
 use Tk::DialogBox;
-
-use strict;
-
-# These should all be in the standard Perl5 distribution.
 use FileHandle;
 use Cwd;
 use Env qw ( HOME );
+
+use strict;
 
 #  Default search options: 
 #  On/off options: edit to be either 1 or 0, as desired.
@@ -182,7 +169,7 @@ my $compress_prog = &command_path('compress');
 
 # Labels
 my $titletext='The Text Critter.';
-my $credittext='Version 0.0. (C) 1999 by R. Kiesling.';
+my $credittext='Version 1.5. \xa9 1999-2002 by Robert Allan Kiesling.';
 my $searchprompttext='Enter the text to search for:';
 my $directoryprompttext='Top search directory:';
 my $resultsfileprompt='File to save results in:';

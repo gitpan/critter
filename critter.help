@@ -9,22 +9,20 @@ DESCRIPTION
 
   "Enter the text to search for:"
 
-    Here you can enter your search text. The text can use any of
-    Perl's regular expression metacharacters (see below for a
-    summary).
+    Here you can enter your search text. The text can use any of Perl's
+    regular expression metacharacters (see below for a summary).
 
   "Top search directory:"
 
     This is the top-level directory to search. Defaults to "~" (home
-    directory). Other possible values are: "/" (root file system
-    directory) and "." (current directory).
+    directory). Other possible values are: "/" (root file system directory)
+    and "." (current directory).
 
   Search
 
-    Start searching. This opens a list window that shows the matched
-    text and the files that contains them. The buttons in the list
-    window (see below) do not take effect until the search has
-    completed.
+    Start searching. This opens a list window that shows the matched text
+    and the files that contains them. The buttons in the list window (see
+    below) do not take effect until the search has completed.
 
   Help
 
@@ -36,51 +34,49 @@ DESCRIPTION
 
   Case sensitive search.
 
-    If this option is selected, Critter will match the search text's
-    case as well as the letters; e.g., "perl" would be matched, but
-    not "Perl." If this option is not selected, then entering "perl"
-    would match both of them. (Note that you can still achieve the
-    same effect by entering "[Pp]erl."
+    If this option is selected, Critter will match the search text's case as
+    well as the letters; e.g., "perl" would be matched, but not "Perl." If
+    this option is not selected, then entering "perl" would match both of
+    them. (Note that you can still achieve the same effect by entering
+    "[Pp]erl."
 
   Match file name only.
 
-    This option performs a match agains the file names but does not
-    search their contents.
+    This option performs a match agains the file names but does not search
+    their contents.
 
   Log progress to terminal.
 
-    This option tells Critter to print a log of its progress (but
-    not the results of the search) to the terminal window. The text
-    is printed to standard error, so from an xterm you can save the
-    log to a file with a command like "critter 2>critter.log &".
+    This option tells Critter to print a log of its progress (but not the
+    results of the search) to the terminal window. The text is printed to
+    standard error, so from an xterm you can save the log to a file with a
+    command like "critter 2>critter.log &".
 
   Search executable files.
 
-    Also search files that have their executable permission bit(s)
-    selected.
+    Also search files that have their executable permission bit(s) selected.
 
   Search gzipped files.
 
-    This option tells Critter to uncompress files ending in "gz"
-    before searching them.
+    This option tells Critter to uncompress files ending in "gz" before
+    searching them.
 
   Results list controls.
 
-    This window contains a list of the text matches of the search
-    pattern and the files that contain them. The control buttons are
-    described below.
+    This window contains a list of the text matches of the search pattern
+    and the files that contain them. The control buttons are described
+    below.
 
   View
 
-    Open a window with the full contents of the file. The first
-    match is at the top of the window.
+    Open a window with the full contents of the file. The first match is at
+    the top of the window.
 
   Save
 
-    Save the results to a file. Type the name of the file in the
-    dialog box and click "Accept." If a file with that name already
-    exists, then the results of this search are added to the end of
-    the file.
+    Save the results to a file. Type the name of the file in the dialog box
+    and click "Accept." If a file with that name already exists, then the
+    results of this search are added to the end of the file.
 
   Close
 
@@ -88,8 +84,8 @@ DESCRIPTION
 
   Search expression syntax.
 
-    The program uses normal Perl syntax for search expressions. For
-    further information, refer to the perlre man page.
+    The program uses normal Perl syntax for search expressions. For further
+    information, refer to the perlre man page.
 
     These are the Perl metacharacters:
 
@@ -106,8 +102,8 @@ DESCRIPTION
       \ Interpret the next character literally.
 
     Because the program recognizes regular expressions, literal
-    metacharacters in the search expressions must be escaped (i.e.,
-    preceded by a slash).
+    metacharacters in the search expressions must be escaped (i.e., preceded
+    by a slash).
 
   Installation.
 
@@ -116,30 +112,16 @@ DESCRIPTION
   System default settings.
 
     Your system administrator should have installed a file called
-    /usr/local/lib/critter.prefs which is world-readable. In
-    addition, the program creates your own preferences file in your
-    ~/.critter subdirectory. They are text files and can be edited
-    easily by hand.
+    /usr/local/lib/critter.prefs which is world-readable. In addition, the
+    program creates your own preferences file in your ~/.critter
+    subdirectory. They are text files and can be edited easily by hand.
 
   Legal and credits.
 
-    The Text Critter (http://www.mainmatter.com/critter)
+    Written by Robert Allan Kiesling <rkiesling@earthlink.net>
 
-    Version 1.4
+    Version 1.5
 
-    Copyright (C) 1999,2000 by Robert Kiesling.
-    (rkiesling@mainmatter.com) This program is free software and is
-    copyrighted under the GNU General Public License, in the file
-    COPYING.
-
-    Please send all feedback to the author.
-
-    Perl version 5.005 (http:/www.cpan.org) is written by Larry Wall
-    and others, and the PerlTk package , Tk800.14
-    (http://www.cpan.org/pub/plan/perl/CPAN/authors/id/NI-S) is by
-    Nick Ing-Simmons.(nick@ni-s.u-net.com).
-
-    The spider is from an unknown website.
-
-    # $Id: critter.perltk,v 0.87 2000/06/23 14:09:13 kiesling Exp $
+    This program is free software and is copyrighted under the GNU General
+    Public License. Refer to the file COPYING.
 

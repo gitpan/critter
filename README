@@ -1,0 +1,73 @@
+Text Critter 0.88 Installation
+------------------------------
+
+This program was written using Linux with Perl 5.005 and PerlTk
+800.14.  If you don't have these installed, please see below.
+
+1.  Unpack the tar file:
+
+      $ tar zxvf critter-0.88.tar.gz
+
+    This will create the subdirectory critter-0.88, which contains
+    the critter program, data files, and miscellaney.  
+
+2.  If you are root, you can copy the executable to a directory
+    in the system's search path, like /usr/local/bin, and the files 
+    critter.help and critter.prefs the directory /usr/local/lib/critter 
+    so that all users will have access to them, e.g.;
+
+       # cd critter-0.88
+       # mkdir /usr/local/lib/critter
+       # cp critter /usr/local/bin
+       # cp critter.help critter.prefs /usr/local/lib/critter
+       # cp critter.1 /usr/local/man/man1
+
+    If you are not root, you can install these files in your $HOME
+    directory in the subdirectory .critter.  This directory will 
+    not be visible in normal listings.  E.g.;
+
+       $ cd critter-0.88
+       $ mkdir ~/.critter
+       $ cp critter.help critter.prefs ~/.critter
+   
+    The program will still work without these files installed,
+    but you will not have on-line help.  The program will still save
+    your preferences in ~/.critter, however, and will create the 
+    ~/.critter directory if necessary.
+
+3.  That should be all.  In an xterm, enter:
+
+      $ ./critter &  # If critter is installed in your $HOME directory,
+      $ critter &    # If installed in a directory in the search path.
+
+If you find the program isn't working, you can enable error logging to
+the terminal by default by changing the $log_default value at line 152
+from 0 to 1.  Then the program will output copious amounts of
+information to the terminal.
+
+If the shell says "file not found," that probably means the program
+can't locate Perl on your system.  Edit the first line of the program
+with the path name of your system's Perl interpreter (i.e., the output
+of "which perl").
+
+Where to Find Perl and Perl/Tk
+------------------------------
+
+If you don't have Perl or the Perl/Tk packages, you can find them
+on http://www.cpan.org/.  Follow the instructions in the
+distributions to install them.  
+
+Disclaimer and Legal:
+---------------------
+
+This program is licensed under the same terms as Perl.  Refer
+to the file "Artistic" in this directory.
+
+The Text Critter is Copyright (C) 1999-2002 by Robert Allan Kiesling.
+As usual, the author makes no warranties about the usability or
+correctness of the program, and takes no responsibility for any damage
+the program might do to your system.
+
+However, feedback is welcome.  Please send all comments to
+Robert Allan Kiesling <rkiesling@earthlink.net>.
+
